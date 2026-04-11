@@ -1,26 +1,49 @@
 import os
 import shutil
-from pathlib import Path
+import json
 
 class FileRouter:
-    def __init__(self, base_path):
-        self.base_path = Path(base_path)
+    def __init__(self):
+        self.base_path = "/storage/emulated/0/Organized"
+        self.log_file = "/storage/emulated/0/undo_log.json"
 
-    def move_files(self, files, target_folder):
-        target_path = self.base_path / target_folder
-        target_path.mkdir(exist_ok=True)
+    def move_files(self, files, folder_name):
+        target_folder = os.path.join(self.base_path, folder_name)
+        os.makedirs(target_folder, exist_ok=True)
 
-        moved_count = 0
+        log_data = []
 
-        for f in files:
+        # Load existing log if exists
+        if os.path.exists(self.log_file):
             try:
-                source = Path(f["path"])
-                destination = target_path / source.name
+                with open(self.log_file, "r") as f:
+                    log_data = json.load(f)
+            except:
+                log_data = []
 
-                shutil.move(str(source), str(destination))
-                moved_count += 1
+        moved = 0
+
+        for file in files:
+            src = file["path"]
+            filename = file["name"]
+            dest = os.path.join(target_folder, filename)
+
+            try:
+                shutil.move(src, dest)
+
+                # Save move info
+                log_data.append({
+                    "from": src,
+                    "to": dest
+                })
+
+                moved += 1
 
             except Exception as e:
-                print(f"Error moving {f['name']}: {e}")
+                pass
 
-        return moved_count
+        # Save log
+        with open(self.log_file, "w") as f:
+            json.dump(log_data, f, indent=2)
+
+        print(f"Moved {moved} files to {folder_name}")
