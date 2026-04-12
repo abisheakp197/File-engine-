@@ -1,49 +1,58 @@
 import os
 import shutil
-import json
+from logger import log_event
+
 
 class FileRouter:
-    def __init__(self):
-        self.base_path = "/storage/emulated/0/Organized"
-        self.log_file = "/storage/emulated/0/undo_log.json"
 
-    def move_files(self, files, folder_name):
-        target_folder = os.path.join(self.base_path, folder_name)
-        os.makedirs(target_folder, exist_ok=True)
+    # -------------------------
+    # SINGLE FILE MOVE
+    # -------------------------
+    def move_file(self, src, dst, session_id=None):
+        if not os.path.exists(src):
+            print("Source not found:", src)
+            return False
 
-        log_data = []
+        try:
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
 
-        # Load existing log if exists
-        if os.path.exists(self.log_file):
-            try:
-                with open(self.log_file, "r") as f:
-                    log_data = json.load(f)
-            except:
-                log_data = []
+            shutil.move(src, dst)
+
+            # log event with session support
+            log_event("MOVE", src, dst, session_id)
+
+            print(f"Moved: {src} -> {dst}")
+            return True
+
+        except Exception as e:
+            print("Move failed:", e)
+            return False
+
+    # -------------------------
+    # BATCH MOVE
+    # -------------------------
+    def move_files(self, file_list, folder_name, session_id=None):
+        if not file_list:
+            print("No files to move")
+            return
+
+        base_path = f"/storage/emulated/0/{folder_name}"
+        os.makedirs(base_path, exist_ok=True)
 
         moved = 0
 
-        for file in files:
-            src = file["path"]
-            filename = file["name"]
-            dest = os.path.join(target_folder, filename)
-
+        for file in file_list:
             try:
-                shutil.move(src, dest)
+                src = file["path"]
+                filename = os.path.basename(src)
+                dst = os.path.join(base_path, filename)
 
-                # Save move info
-                log_data.append({
-                    "from": src,
-                    "to": dest
-                })
+                success = self.move_file(src, dst, session_id)
 
-                moved += 1
+                if success:
+                    moved += 1
 
             except Exception as e:
-                pass
+                print("Batch error:", e)
 
-        # Save log
-        with open(self.log_file, "w") as f:
-            json.dump(log_data, f, indent=2)
-
-        print(f"Moved {moved} files to {folder_name}")
+        print(f"Batch complete: {moved}/{len(file_list)} moved")
