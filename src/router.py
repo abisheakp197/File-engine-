@@ -1,6 +1,7 @@
 import os
 import shutil
 from logger import log_event
+from history import add_entry
 
 
 class FileRouter:
@@ -18,8 +19,17 @@ class FileRouter:
 
             shutil.move(src, dst)
 
-            # log event with session support
+            # ✅ existing logger
             log_event("MOVE", src, dst, session_id)
+
+            # ✅ undo + session logging
+            entry = {
+                "from": src,
+                "to": dst,
+                "operation": "move",
+                "session": session_id   # 🔥 important
+            }
+            add_entry(entry)
 
             print(f"Moved: {src} -> {dst}")
             return True
@@ -55,4 +65,4 @@ class FileRouter:
             except Exception as e:
                 print("Batch error:", e)
 
-        print(f"Batch complete: {moved}/{len(file_list)} moved")
+        print(f"Batch complete: {moved}/{len(file_list)}")

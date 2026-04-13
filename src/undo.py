@@ -2,26 +2,31 @@ import json
 import os
 import shutil
 
-HISTORY_PATH = "../storage/history/history.json"
+HISTORY_PATH = "history.json"
 
 
+# -------------------------
+# LOAD / SAVE
+# -------------------------
 def load_history():
     if not os.path.exists(HISTORY_PATH):
         return []
 
-    with open(HISTORY_PATH, "r") as f:
-        try:
+    try:
+        with open(HISTORY_PATH, "r") as f:
             return json.load(f)
-        except:
-            return []
+    except:
+        return []
 
 
 def save_history(data):
-    os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
     with open(HISTORY_PATH, "w") as f:
         json.dump(data, f, indent=2)
 
 
+# -------------------------
+# UNDO ENGINE
+# -------------------------
 class UndoEngine:
 
     # -------------------------
@@ -29,7 +34,8 @@ class UndoEngine:
     # -------------------------
     def _reverse(self, action):
         try:
-            if action.get("action") == "MOVE":
+            if action.get("operation") == "move":
+
                 src = action.get("to")
                 dst = action.get("from")
 
@@ -43,6 +49,8 @@ class UndoEngine:
                     os.makedirs(os.path.dirname(dst), exist_ok=True)
                     shutil.move(src, dst)
                     print(f"UNDO MOVE: {src} -> {dst}")
+                else:
+                    print("File missing:", src)
 
         except Exception as e:
             print("Undo error:", e)
@@ -109,7 +117,7 @@ class UndoEngine:
         print(f"Undo folder '{folder_name}' completed: {len(target)} actions")
 
     # -------------------------
-    # 🔥 NEW: SESSION UNDO (FULL RUN ROLLBACK)
+    # SESSION UNDO
     # -------------------------
     def undo_last_session(self):
         history = load_history()
@@ -124,10 +132,9 @@ class UndoEngine:
             print("No session data found")
             return
 
-        remaining = []
         target = []
+        remaining = []
 
-        # collect session actions
         for h in history:
             if h.get("session") == last_session:
                 target.append(h)
@@ -138,7 +145,6 @@ class UndoEngine:
             print("Session not found:", last_session)
             return
 
-        # reverse in correct order
         for action in reversed(target):
             self._reverse(action)
 
@@ -146,3 +152,38 @@ class UndoEngine:
 
         print(f"Session undo completed: {last_session}")
         print(f"Reversed actions: {len(target)}")
+
+
+# -------------------------
+# RUN (USER CONTROL)
+# -------------------------
+if __name__ == "__main__":
+    engine = UndoEngine()
+
+    print("\nChoose Undo Option:")
+    print("1. Undo last file")
+    print("2. Undo last N files")
+    print("3. Undo by folder")
+    print("4. Undo last session")
+
+    choice = input("Enter choice (1-4): ")
+
+    if choice == "1":
+        engine.undo_last()
+
+    elif choice == "2":
+        try:
+            n = int(input("Enter number of files: "))
+            engine.undo_last_n(n)
+        except:
+            print("Invalid number")
+
+    elif choice == "3":
+        folder = input("Enter folder name (e.g. Images): ")
+        engine.undo_by_folder(folder)
+
+    elif choice == "4":
+        engine.undo_last_session()
+
+    else:
+        print("Invalid choice")
