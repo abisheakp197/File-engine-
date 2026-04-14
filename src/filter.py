@@ -4,7 +4,7 @@ class FileFilter:
         self.files = files
 
         # -------------------------
-        # SAFETY: NEVER TOUCH THESE
+        # SAFETY PATHS
         # -------------------------
         self.ignore_paths = [
             "/storage/emulated/0/File-engine-",
@@ -16,14 +16,16 @@ class FileFilter:
         ]
 
         # -------------------------
-        # SAFE FILE TYPES ONLY
+        # EXTENSIONS
         # -------------------------
+        self.image_ext = [".jpg", ".jpeg", ".png", ".webp"]
+
+        self.video_ext = [
+            ".mp4", ".mkv", ".mov", ".avi", ".3gp", ".webm"
+        ]
+
         self.blocked_extensions = [
-            ".py",
-            ".json",
-            ".log",
-            ".db",
-            ".xml"
+            ".py", ".json", ".log", ".db", ".xml"
         ]
 
     # -------------------------
@@ -32,37 +34,42 @@ class FileFilter:
     def _is_safe(self, file):
         path = file["path"]
 
-        # block system paths
         for ignore in self.ignore_paths:
             if path.startswith(ignore):
                 return False
 
-        # block sensitive file types
-        ext = file.get("extension", "").lower()
+        ext = file.get("ext", "").lower()
+
         if ext in self.blocked_extensions:
             return False
 
         return True
 
     # -------------------------
-    # FILTER: IMAGES
+    # IMAGES STREAM
     # -------------------------
     def images(self):
-        safe_files = [f for f in self.files if self._is_safe(f)]
-        return self.by_extension(safe_files, [".jpg", ".jpeg", ".png"])
+        return (
+            f for f in self.files
+            if self._is_safe(f) and f.get("ext", "").lower() in self.image_ext
+        )
 
     # -------------------------
-    # FILTER: LARGE FILES
+    # VIDEOS STREAM
     # -------------------------
-    def by_size(self, min_size=10):
-        safe_files = [f for f in self.files if self._is_safe(f)]
-        return [f for f in safe_files if f["size"] >= min_size * 1024 * 1024]
+    def videos(self):
+        return (
+            f for f in self.files
+            if self._is_safe(f) and f.get("ext", "").lower() in self.video_ext
+        )
 
     # -------------------------
-    # INTERNAL: EXTENSION FILTER
+    # LARGE FILES STREAM (MB BASED)
     # -------------------------
-    def by_extension(self, file_list, extensions):
-        return [
-            f for f in file_list
-            if f.get("extension", "").lower() in extensions
-        ]
+    def large_files(self, min_size_mb=10):
+        min_size = min_size_mb * 1024 * 1024
+
+        return (
+            f for f in self.files
+            if self._is_safe(f) and f["size"] >= min_size
+        )

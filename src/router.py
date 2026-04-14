@@ -1,4 +1,5 @@
 import os
+import time
 import shutil
 from logger import log_event
 from history import add_entry
@@ -7,51 +8,52 @@ from history import add_entry
 class FileRouter:
 
     # -------------------------
-    # SINGLE FILE MOVE
+    # SINGLE FILE MOVE (silent core)
     # -------------------------
     def move_file(self, src, dst, session_id=None):
+
         if not os.path.exists(src):
-            print("Source not found:", src)
             return False
 
         try:
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-
             shutil.move(src, dst)
 
-            # ✅ existing logger
             log_event("MOVE", src, dst, session_id)
 
-            # ✅ undo + session logging
-            entry = {
+            add_entry({
                 "from": src,
                 "to": dst,
                 "operation": "move",
-                "session": session_id   # 🔥 important
-            }
-            add_entry(entry)
+                "session": session_id
+            })
 
-            print(f"Moved: {src} -> {dst}")
             return True
 
-        except Exception as e:
-            print("Move failed:", e)
+        except Exception:
             return False
 
     # -------------------------
-    # BATCH MOVE
+    # STREAM MOVE WITH LIVE PROGRESS
     # -------------------------
     def move_files(self, file_list, folder_name, session_id=None):
+
         if not file_list:
-            print("No files to move")
+            print(f"No files to move for {folder_name}", flush=True)
             return
 
         base_path = f"/storage/emulated/0/{folder_name}"
         os.makedirs(base_path, exist_ok=True)
 
+        total = len(file_list)
         moved = 0
 
-        for file in file_list:
+        start_time = time.time()
+
+        print(f"\n--- Moving {folder_name} ({total}) ---\n", flush=True)
+
+        for i, file in enumerate(file_list, start=1):
+
             try:
                 src = file["path"]
                 filename = os.path.basename(src)
@@ -62,7 +64,21 @@ class FileRouter:
                 if success:
                     moved += 1
 
-            except Exception as e:
-                print("Batch error:", e)
+                # -------------------------
+                # LIVE SPEED + PROGRESS
+                # -------------------------
+                elapsed = time.time() - start_time
+                speed = i / elapsed if elapsed > 0 else 0
 
-        print(f"Batch complete: {moved}/{len(file_list)}")
+                print(
+                    f"[{i}/{total}] moved={moved} speed={speed:.2f} files/sec",
+                    flush=True
+                )
+
+            except Exception as e:
+                print(f"Batch error: {e}", flush=True)
+
+        print(
+            f"\nBatch complete: {moved}/{total} ({folder_name})",
+            flush=True
+        )

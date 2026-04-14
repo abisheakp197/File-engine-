@@ -15,36 +15,48 @@ class FileScanner:
             "/storage/emulated/0/Android/obb"
         }
 
+    # -------------------------
+    # STREAMING SCANNER (CONTROLLED)
+    # -------------------------
     def scan(self):
-        all_files = []
+        from control import should_stop  # <-- SAFE ADDITION ONLY
 
         for root, dirs, files in os.walk(self.root_path):
+
+            # STOP CHECK (outer loop)
+            if should_stop():
+                return
 
             if self._is_ignored(root):
                 continue
 
             for file in files:
+
+                # STOP CHECK (inner loop)
+                if should_stop():
+                    return
+
                 full_path = os.path.join(root, file)
 
                 try:
                     size = os.path.getsize(full_path)
 
-                    # ⭐ FIX: extract extension safely
                     _, ext = os.path.splitext(file)
                     ext = ext.lower()
 
-                    all_files.append({
+                    yield {
                         "path": full_path,
                         "name": file,
                         "size": size,
-                        "extension": ext
-                    })
+                        "ext": ext
+                    }
 
                 except:
                     continue
 
-        return all_files
-
+    # -------------------------
+    # IGNORE LOGIC (UNCHANGED)
+    # -------------------------
     def _is_ignored(self, path):
         for ignore in self.ignore_folders:
             if path.startswith(ignore):
